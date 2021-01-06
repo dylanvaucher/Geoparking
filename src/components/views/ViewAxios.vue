@@ -28,6 +28,7 @@
 
 <script>
 import axios from 'axios'
+import {getSITGParking} from '../../lib/requete_SITG.js';
 //import Vue from 'vue'
 
 export default {
