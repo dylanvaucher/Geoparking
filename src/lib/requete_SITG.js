@@ -1,4 +1,9 @@
+//Import Axios
 import axios from 'axios'
+/**
+  *Requete SITG pour les parkings
+  * @returns {json} JSon issue de la requete des arkit
+ */
 export async function getSITGParking(){
     let url = "https://ge.ch/terags/rest/services/SITG/INFOMOB_PARKING_TEMPS_REEL/MapServer/0/query?";
     let query ="where=1%3D1&text=&objectIds=&time=&geometry=&geometryType=esriGeometryPoint&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&returnDistinctValues=false&resultOffset=&resultRecordCount=&f=pjson";
