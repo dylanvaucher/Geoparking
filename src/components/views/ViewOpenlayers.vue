@@ -1,9 +1,19 @@
 <template>
+  <div><input v-model="searchquery" v-on:change="getGeoAdminSearch(searchapiURL,searchquery,searchtype)" placeholder="Rechercher un lieu"></div><br>
+  <div class="field has-addons has-addons-centered">
+    <p class="control"><button class="button"><span class="icon"><input type="checkbox" id="checkbox_OSM" :checked="false" v-model="OSMVisible" @change="osmcheck(OSMVisible)"></span><label for="checkbox_OSM"> OSM Layer</label></button></p>
+      <p class="control"><button class="button"><span class="icon"><input type="checkbox" id="checkbox_parking" :checked="true" v-model="parkingVisible" @change="parkingcheck(parkingVisible)"></span><label for="checkbox_parking"> Parkings</label></button></p>
+      <p class="control"><button class="button" v-on:click="vivsibleLayer(layerLibre)"><span class="icon"><img class="prefix" src="../../assets/parking_vert.png"></span><span> Libre</span></button></p>
+      <p class="control"><button class="button" v-on:click="vivsibleLayer(layerDense)"><span class="icon"><img class="prefix" src="../../assets/parking_orange.png"></span><span> Peu de places diponibles</span></button></p>
+      <p class="control"><button class="button" v-on:click="vivsibleLayer(layerComplet)"><span class="icon"><img class="prefix" src="../../assets/parking_rouge.png"></span><span> Complet</span></button></p>
+      <p class="control"><button class="button" v-on:click="vivsibleLayer(layerIndispo)"><span class="icon"><img class="prefix" src="../../assets/parking_bleu.png"></span><span> Information indisponible</span></button></p>
+  </div>
   <div id="ol-container" class="map"></div>
   <div id="mousePosition"></div>
 </template>
 
 <script>
+import axios from 'axios'
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import OSM from 'ol/source/OSM';
@@ -13,18 +23,30 @@ import WMTS  from 'ol/source/WMTS';
 import View from 'ol/View';
 import * as control from 'ol/control';
 import * as coordinate from 'ol/coordinate';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
+import EsriJSON from 'ol/format/EsriJSON';
+import {Fill, Stroke, Circle, Style, Icon} from 'ol/style';
+import Point from 'ol/geom/Point';
+import Feature from 'ol/Feature';
 import Projection from 'ol/proj/Projection';
 import * as olProj from 'ol/proj';
 import proj4 from 'proj4';
 import {register} from 'ol/proj/proj4';
 import {geoloc} from '../../lib/geolocation.js';
+import {getSITGParking} from '../../lib/requete_SITG.js';
+
+const parkingVert = require('@/assets/parking_vert.png');
+const parkingBleu = require('@/assets/parking_bleu.png');
+const parkingRouge = require('@/assets/parking_rouge.png');
+const parkingOrange = require('@/assets/parking_orange.png');
 
 export default {
   data() {
     return{
-      center: [6.659361,46.779389],
-      olmap:null,
-      zoom: 17,
+      center: [2500000, 1120000],
+      olmap: null,
+      zoom: 9,
       RESOLUTIONS: [
               4000, 3750, 3500, 3250, 3000, 2750, 2500, 2250, 2000, 1750, 1500, 1250,
               1000, 750, 650, 500, 250, 100, 50, 20, 10, 5, 2.5, 2, 1.5, 1, 0.5
@@ -39,11 +61,69 @@ export default {
         "label": "SWISSIMAGE",
         "timestamps": ["current"]
       },
+      osmlayer:null,
+      wmtsLayer:null,
       geooptions: {
         enableHignAccuracy: true,
         maximumAge        : 30000, 
         timeout           : 27000
-      }
+      },
+      searchapiURL: "https://api3.geo.admin.ch/rest/services/api/SearchServer?searchText=",
+      searchquery:"",
+      searchtype: "&type=locations",
+      searchLieu: {
+        lieu:"",
+        lat: "",
+        long: ""
+      },
+      stylecache: {
+        'Libre': new Style({
+          image: new Icon({
+            imgsize: [512, 512],
+            scale: 0.05,
+            src: parkingVert,
+          }),
+        }),
+        'Dense': new Style({
+          image: new Icon({
+            imgsize: [512, 512],
+            scale: 0.05,
+            src: parkingOrange,
+          }),
+        }),
+        'Complet': new Style({
+          image: new Icon({
+            imgsize: [512, 512],
+            scale: 0.05,
+            src: parkingRouge,
+          }),
+        }),
+        'Indisponible': new Style({
+          image: new Icon({
+            imgsize: [512, 512],
+            scale: 0.05,
+            src: parkingBleu,
+          }),
+        })
+      },
+      parkings: null,
+      layerLibre: {
+       layer: null,
+       condition: true,
+      },
+      layerDense: {
+       layer: null,
+       condition: true,
+      },
+      layerComplet: {
+       layer: null,
+       condition: true,
+      },
+      layerIndispo: {
+       layer: null,
+       condition: true,
+      },
+      parkingVisible: true
     }
   },
   computed:{
@@ -64,9 +144,6 @@ export default {
       })
       return projection
     },
-    center3857(){
-      return olProj.transform(this.center, 'EPSG:4326', 'EPSG:2056');
-    },
     matrix(){
       for(let i = 0; i < this.RESOLUTIONS.length; i++) {this.matrixIds.push(i);}
     }
@@ -79,22 +156,16 @@ export default {
      * @param {number} mapzoom zommlevel
      * @returns {Map} initmap new openlayers map
      */
-    setupOpenlayersMap (mapcenter,mapzoom) {
-      return new Map({
-        target: 'ol-container',
-        layers: [
-          new TileLayer({
-            source: new OSM(),
-          }) ],
-        view: new View({
-          center: mapcenter,
-          zoom: mapzoom
-        })
-      })
+    setupOSMlayer () {
+      this.osmlayer = new TileLayer({
+          source: new OSM()
+      });
+      this.olmap.addLayer(this.osmlayer);
+      this.osmlayer.setVisible(false);
+
     },
 
     wmtsSource(layerConfig, projection){
-      console.log(this.matrixIds);
       let resolutions = layerConfig.resolutions || this.RESOLUTIONS;
       let tileGrid = new WMTSTileGrid({
         origin: [this.extent[0], this.extent[3]],
@@ -105,8 +176,7 @@ export default {
       let timestamp = layerConfig['timestamps'][0];
       return new WMTS(({
         attributions: [new control.Attribution({
-          html: '<a target="new" href="https://www.swisstopo.admin.ch/' +
-            'internet/swisstopo/en/home.html">swisstopo</a>'
+          html: '<a target="new" href="https://www.swisstopo.admin.ch/internet/swisstopo/en/home.html">swisstopo</a>'
         })],
         url: '//wmts10.geo.admin.ch/1.0.0/{Layer}/default/' + timestamp + '/2056/{TileMatrix}/{TileCol}/{TileRow}.'+ extension,
         tileGrid: tileGrid,
@@ -141,7 +211,7 @@ export default {
             units: 'metric'
           }),
           new control.MousePosition({
-            coordinateFormat: coordinate.createStringXY(4),
+            coordinateFormat: coordinate.createStringXY(0),
             //projection: 'EPSG:2056',
             target: document.getElementById('mousePosition'),
             undefinedHTML: '&nbsp;'
@@ -152,21 +222,150 @@ export default {
     },
 
     marker(position){
-      console.log(position.timestamp, position.coords.latitude, position.coords.longitude);
+      console.log(position.timestamp, position.coords.latitude, position.coords.longitude, position.coords.accuracy);
       let coord = olProj.transform([position.coords.longitude,position.coords.latitude], 'EPSG:4326', 'EPSG:2056');
-      console.log(coord);
+      this.posPoint(coord);
     },
 
     message(mess){
       alert (mess);
+    },
+
+    //dessin d'un cercle à la position
+    posPoint(coordinates){
+      let positionFeature = new Feature();
+      positionFeature.setGeometry(coordinates ?
+        new Point(coordinates): null);
+
+      let layer = new VectorLayer({
+        source: new VectorSource({
+          features:[positionFeature]
+        }),
+        style: new Style({
+          image: new Circle({
+            radius: 6,
+            fill: new Fill({
+              color: '#3399CC'
+            }),
+          })          
+        }),
+      });
+      this.olmap.addLayer(layer);
+    },
+
+    async getGeoAdminSearch(url,query,type){
+      let response = await axios.get(url+query+type)
+      .catch(error => {
+        console.error(error);
+        return 0
+      })
+      //request error
+      if(response == 0){
+        return "Ouch an error occurred"
+      }
+      // don't find an answer
+      if(response.data.count == 0){
+        return "Didn't found any answers"
+      }
+      // Get first quote
+      //console.log(response);
+      this.searchLieu.lieu = response.data.results[0].attrs.label;
+      this.searchLieu.lat = response.data.results[0].attrs.lat;
+      this.searchLieu.long = response.data.results[0].attrs.lon;
+      this.olmap.getView().setCenter(olProj.transform([this.searchLieu.long,this.searchLieu.lat], 'EPSG:4326', 'EPSG:2056'));
+      this.olmap.getView().setZoom(9);
+      //return response.data.results[0].attrs.label;
+    },
+
+    filterJSON(json, filtre){
+      let jsoncopie = JSON.parse(JSON.stringify(json));
+      let jsonfilter = json.features.filter(function (entry){
+        return entry.attributes.ETAT === filtre;
+      });
+      jsoncopie.features = jsonfilter;
+      console.log(jsoncopie);
+      return jsoncopie;
+    },
+
+    importEsriJSON(json, filtre){
+      let layer = new VectorLayer({
+        source: new VectorSource({
+          features: new EsriJSON().readFeatures(this.filterJSON(json, filtre))
+        }),
+        style: this.stylecache[filtre],
+      });
+      this.olmap.addLayer(layer);
+      return layer;
+    },
+
+    osmcheck(checked){
+      this.osmlayer.setVisible(checked);
+      this.wmtsLayer.setVisible(!checked);
+    },
+
+    parkingcheck(checked){
+      if (checked == true){
+        this.layerLibre.layer.setVisible(this.layerLibre.condition);
+        this.layerDense.layer.setVisible(this.layerDense.condition);
+        this.layerComplet.layer.setVisible(this.layerComplet.condition);
+        this.layerIndispo.layer.setVisible(this.layerIndispo.condition);
+      };
+      if (checked == false){
+        this.layerLibre.layer.setVisible(false);
+        this.layerPeu.layer.setVisible(false);
+        this.layerComplet.layer.setVisible(false);
+        this.layerIndispo.layer.setVisible(false);
+      };
+    },
+
+    vivsibleLayer(layer){
+      if (this.parkingVisible == true){
+        if (this.layerLibre.condition == true & this.layerDense.condition == true &
+          this.layerComplet.condition == true & this.layerIndispo.condition == true){
+            this.layerLibre.condition = !this.layerLibre.condition;
+            this.layerDense.condition = !this.layerDense.condition;
+            this.layerComplet.condition = !this.layerComplet.condition;
+            this.layerIndispo.condition = !this.layerIndispo.condition;
+            layer.condition = !layer.condition;
+            this.layerLibre.layer.setVisible(this.layerLibre.condition);
+            this.layerDense.layer.setVisible(this.layerDense.condition);
+            this.layerComplet.layer.setVisible(this.layerComplet.condition);
+            this.layerIndispo.layer.setVisible(this.layerIndispo.condition);
+        } else if (layer.condition == false) {
+          layer.condition = !layer.condition;
+          layer.layer.setVisible(layer.condition);
+        } else if (layer.condition == true) {
+          layer.condition = !layer.condition;
+          if (this.layerLibre.condition == false & this.layerDense.condition == false &
+            this.layerComplet.condition == false & this.layerIndispo.condition == false){
+              this.layerLibre.condition = !this.layerLibre.condition;
+              this.layerDense.condition = !this.layerDense.condition;
+              this.layerComplet.condition = !this.layerComplet.condition;
+              this.layerIndispo.condition = !this.layerIndispo.condition;
+              this.layerLibre.layer.setVisible(this.layerLibre.condition);
+              this.layerDense.layer.setVisible(this.layerDense.condition);
+              this.layerComplet.layer.setVisible(this.layerComplet.condition);
+              this.layerIndispo.layer.setVisible(this.layerIndispo.condition);
+          } else {
+            layer.layer.setVisible(layer.condition);
+          };
+        };
+      };
     }
   },
 
-  mounted() {
+  async mounted() {
     //this.olmap = this.setupOpenlayersMap(this.center3857,this.zoom);
     this.matrix;
-    this.olmap = this.setupMap(this.setupWMTSLayer(this.wmtsSource(this.layerConfig, this.projectionget)),this.center3857, this.zoom, this.projectionget);
-    this.geoloc(this.marker, this.message, this.geooptions);
+    this.wmtsLayer = this.setupWMTSLayer(this.wmtsSource(this.layerConfig, this.projectionget));
+    this.olmap = this.setupMap(this.wmtsLayer,this.center, this.zoom, this.projectionget);
+    this.setupOSMlayer();
+    geoloc(this.marker, this.message, this.geooptions);
+    this.parkings = await getSITGParking();
+    this.layerLibre.layer = this.importEsriJSON(this.parkings, 'Libre');
+    this.layerIndispo.layer = this.importEsriJSON(this.parkings, 'Indisponible');
+    this.layerDense.layer = this.importEsriJSON(this.parkings, 'Dense');
+    this.layerComplet.layer = this.importEsriJSON(this.parkings, 'Complet');
   }
 
 }
@@ -174,7 +373,7 @@ export default {
 
 <style scoped>
 #ol-container {
-  height: 500px;
+  height: 450px;
 }
 #mousePosition {
   position: relative;
