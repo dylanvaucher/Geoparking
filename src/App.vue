@@ -1,5 +1,7 @@
 <template>
-  <img id="vue-icon" src="./assets/logo.png"/>
+
+  <img id="geoparking-logo" src="./assets/logo_geoparking.png"/>
+
   <!-- Bulma: menu tabs -->
   <div class="tabs is-centered">
     <ul>
@@ -19,23 +21,15 @@ export default {
     return {
       menulist:[
         {
-          menuname:"Hello",
+          menuname:"Page d'accueil",
           route:"/"
         },
         { 
-          menuname:"Axios",
-          route:"/axios"
-        },
-        { 
-          menuname:"2d_openlayers",
+          menuname:"2D OpenLayers",
           route:"/openlayers"
         },
         { 
-          menuname:"2d_leaflet",
-          route:"/leaflet"
-        },
-        { 
-          menuname:"3d_cesium",
+          menuname:"3D Cesium",
           route:"/cesium"
         }
       ] 
@@ -56,11 +50,14 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
+  margin-top: 10px;
   height: 100%;
   width: 100%;
 }
-#vue-icon{
-  height: 5em;
+
+#geoparking-logo {
+  height: 20%;
+  width: 20%;
 }
+
 </style>
