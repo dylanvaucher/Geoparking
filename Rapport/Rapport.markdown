@@ -60,7 +60,8 @@ L'outil GEOPARKING est composé d'un menu principal avec trois onglets: la page 
 
 En ouvrant l'application, l'utilisateur arrive sur la page d'accueil contenant des informations générales relatives au projet: titre, noms des auteurs, contexte de réalisation du projet, petite description des composants et une légende.
 
-![Paged'accueil](./Images/page_accueil.PNG)
+![Page d'accueil](./Images/Page_accueil.PNG)
+*Page d'accueil du projet Geoparking*
   
 
 ### Portail cartographique 2D - OpenLayers
@@ -75,8 +76,10 @@ Pour le géoportail 2D, les fonctionnalités suivantes ont été implémentées:
  * Affichage des coordonnées de la position souris en MN95
 
 ![Page 3D Cesium affichage des données SITG avec fond de carte Swissimage](./Images/2D_1.png)
+*Page 3D Cesium affichage des données SITG avec fond de carte Swissimage*
 
-![Page 3D Cesium affichage géolocalisation avec fond de carte OpenStreetMap](./Images/2D_2.png) 
+![Page 3D Cesium affichage géolocalisation avec fond de carte OpenStreetMap](./Images/2D_2.png)
+*Page 3D Cesium affichage géolocalisation avec fond de carte OpenStreetMap* 
 
 ### Portail cartographique 3D - Cesium
 Pour le géoportail 3D, les fonctionnalités suivantes ont été développées:
@@ -85,9 +88,11 @@ Pour le géoportail 3D, les fonctionnalités suivantes ont été développées:
  * Affichage des données issues des la requête SITG
  * Affichage via Popup des différentes informations issus des parkings (nom, lien internet, taux de remplissage, nombre de places disponibles, etc.)
 
-![Page 3D Cesium affichage des données SITG ](./Images/3D_1.PNG)
+![Page 3D Cesium affichage des données SITG](./Images/3D_1.PNG)
+*Page 3D Cesium affichage des données SITG*
 
 ![Page 3D Cesium affichage géolocalisation](./Images/3D_2.PNG)
+*Page 3D Cesium affichage géolocalisation*
 
   
 
@@ -96,11 +101,14 @@ Pour arriver au résultat de notre site, nous avons travailler par étape. Nous 
 
 Lors de l'implémentation de ce projet, plusieurs problèmes sont survenus. A commencer par l'accès au données du SITG. En effet, il a fallu trouver le bon URL pour accéder au bonne données. Par la suite, il a fallu s'attarder sur le système de coordonnées. Effectivement, les données du SITG sont fourni en MN95 tant dit que d'autres de données sont en WGS84 comme les coordonnées de la géolocalisation ou encore le globe de Cesium. Une attention particulière a été porté sur le format des données surtout celles issues de la requête SITG. En effet, le format issu de la requête est du JSON d'ESRI qui peut être importer simplement dans le portail cartographique 2D mais qui doit être transformé portail 3D. Cesium peut seulement importer des formats GeoJSON ou TopoJSON. On aussi pu constater que la géolocalisation pouvait afficher plusieurs points si on ce déplaçait. En effet, notre fonction ajoute un point à chaque nouvelle position et ne supprime pas l'ancien au lieu de l'actualisé. Par manque de temps, ce problème n'a pu à résolu. Lors de grand dézoom, une erreur 404 survient sur le WWMTS Swissimage car il n'y a pas de blocage de zoom arrirère implémentée. Pour finir, l'implémentation de l'extrusion des données en fonction du taux de remplissage des parkings a été fait pour le portail 3D mais malheureusement, un problème d'import dans le "viewer" de Cesium est survenu et n'a pas pu être résolu.
 
-![Exemple des plusieurs points affichés](./Images/Plusieurs_points.png)
+![Exemple de plusieurs points affichés](./Images/Plusieurs_points.png)
+*Exemple de plusieurs points affichés*
 
 ![Exemple d'erreur de tuile pas trouvées dans le WMTS](./Images/not_found_wmts.PNG)
+*Exemple d'erreur de tuile pas trouvées dans le WMTS Swissimage*
 
 ![Exemple d'extrusion](./Images/Extrusion.png)
+*Exemple d'extrusion*
 
 ## Conclusion et perspectives
  La principale force de projet est l'affichage des données via une requête URL permettant la mise à jour des données à chaque actualisation de la page web. En plus des cette force, les points forts suivant ont pu être dégager:
